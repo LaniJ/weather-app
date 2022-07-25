@@ -17,7 +17,7 @@ import "@reach/combobox/styles.css";
 
 const PlacesAutocomplete = ({ setSelected }) => {
   const res = usePlacesAutocomplete();
-  console.log("data", res);
+  console.log(res);
 
   const {
     value,
