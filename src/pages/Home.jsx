@@ -1,9 +1,9 @@
 import { useState, useMemo, useEffect } from "react";
 import image from "../assets/Weather-cuate.svg";
 import Loader from "../components/Loader";
-import { GoogleMap, useLoadScript, Marker } from "@react-google-maps/api";
+import { GoogleMap, useJsApiLoader, Marker } from "@react-google-maps/api";
 import usePlacesAutocomplete, {
-  getGeoCode,
+  getGeocode,
   getLatLng,
 } from "use-places-autocomplete";
 import {
@@ -16,10 +16,8 @@ import {
 import "@reach/combobox/styles.css";
 
 const PlacesAutocomplete = ({ setSelected }) => {
-  const res = usePlacesAutocomplete();
-  console.log(res);
-
   const {
+    ready,
     value,
     setValue,
     suggestions: { status, data },
@@ -29,50 +27,47 @@ const PlacesAutocomplete = ({ setSelected }) => {
   const handleSelect = async (address) => {
     setValue(address, false);
     clearSuggestions();
+
+    const results = await getGeocode({ address });
+    const { lat, lng } = await getLatLng(results[0]);
+    setSelected({ lat, lng });
   };
 
-  useEffect(() => {
-    setSelected(value);
-  }, [value]);
-
   return (
-    <>
-      <Combobox onSelect={handleSelect}>
-        <ComboboxInput
-          value={value}
-          onChange={(e) => {
-            console.log("changed");
-            setValue(e.target.value, true);
-          }}
-          placeholder="Enter a location"
-          className="search-input"
-        />
-        <ComboboxPopover>
-          <ComboboxList>
-            {status === "OK" &&
-              data.map(({ place_id, description }) => (
-                <ComboboxOption key={place_id} value={description} />
-              ))}
-          </ComboboxList>
-        </ComboboxPopover>
-      </Combobox>
-    </>
+    <Combobox onSelect={handleSelect} className="grow">
+      <ComboboxInput
+        value={value}
+        onChange={(e) => {
+          setValue(e.target.value);
+        }}
+        disabled={!ready}
+        placeholder="Enter a location"
+        className="search-input"
+      />
+      <ComboboxPopover>
+        <ComboboxList>
+          {status === "OK" &&
+            data.map(({ place_id, description }) => (
+              <ComboboxOption key={place_id} value={description} />
+            ))}
+        </ComboboxList>
+      </ComboboxPopover>
+    </Combobox>
   );
 };
 
-const Map = () => {
+const Map = ({ selected }) => {
   const center = useMemo(() => ({ lat: 43.45, lng: -80.49 }), []);
-  const [selected, setSelected] = useState(null);
+
+  useEffect(() => {
+    console.log(selected);
+  }, [selected]);
 
   return (
     <div>
-      <div>
-        <PlacesAutocomplete setSelected={setSelected} />
-        <h2>HELLO</h2>
-      </div>
       <GoogleMap
         zoom={10}
-        center={center}
+        center={selected}
         mapContainerClassName="map-container"
       >
         {selected && <Marker position={selected} />}
@@ -83,13 +78,15 @@ const Map = () => {
 
 const Home = () => {
   // const google = window.google;
-  const { isLoaded } = useLoadScript({
+  const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY,
-    libaries: ["places"],
+    libraries: ["places"],
+    id: "google-map-script",
   });
+  console.log("isLoaded", isLoaded);
 
-  const [location, setLocation] = useState("");
-  const [selected, setSelected] = useState(null);
+  const [location, setLocation] = useState({ lat: 43.45, lng: -80.49 });
+  const [selected, setSelected] = useState();
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -111,28 +108,15 @@ const Home = () => {
             What's the weather in...
           </h1>
           <div className="relative">
-            {/* <form onSubmit={handleSubmit}> */}
             <label>Location:</label>
             <div className="flex items-center">
-              {/* <input
-                type="text"
-                required
-                placeholder="Enter a location"
-                className="search-input"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-              /> */}
               <PlacesAutocomplete setSelected={setSelected} />
-
-              <button>Search</button>
+              <button onClick={() => setLocation(selected)}>Search</button>
             </div>
-            {/* </form> */}
           </div>
           <div className="weather-details">
             <img className="h-full w-full" src={image} alt="" />
           </div>
-          {/* <h2>Find out the weather in</h2> */}
-          {/* <Loader /> */}
           <p className="mt-5">
             Made with <span>❤</span> by Lani Billions
           </p>
@@ -140,7 +124,7 @@ const Home = () => {
       </div>
 
       <div className="map w-1/3">
-        <Map />
+        <Map selected={location} />
       </div>
     </div>
   );
